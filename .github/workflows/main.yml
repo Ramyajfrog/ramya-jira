@@ -1,0 +1,62 @@
+name: Build and Upload to Artifactory
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout the repo
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 2. Run your build (example: zip files as a mock "build")
+      - name: Build - Zip Output
+        run: |
+          mkdir -p build-output
+          echo "Sample file" > build-output/output.txt
+          zip -r build-output/app.zip build-output/output.txt
+
+      # 3. Install JFrog CLI
+      - name: Install JFrog CLI
+        uses: jfrog/setup-jfrog-cli@v3
+        with:
+          version: latest
+
+      # 4. Configure JFrog CLI
+      - name: Configure JFrog CLI
+        run: |
+          jfrog config add artifactory-server \
+            --url="$ARTIFACTORY_URL" \
+            --user="$ARTIFACTORY_USER" \
+            --password="$ARTIFACTORY_PASSWORD" \
+            --interactive=false
+        env:
+          ARTIFACTORY_URL: ${{ secrets.ARTIFACTORY_URL }}
+          ARTIFACTORY_USER: ${{ secrets.ARTIFACTORY_USER }}
+          ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}
+
+      # 5. Upload artifacts to Artifactory
+      - name: Upload artifacts
+        run: |
+          jfrog rt upload "build-output/*.zip" generic-local/my-app/${{ github.run_number }}/ \
+            --build-name=my-app-build \
+            --build-number=${{ github.run_number }}
+
+      # 6. Collect environment and VCS info
+      - name: Collect build environment
+        run: |
+          jfrog rt build-collect-env my-app-build ${{ github.run_number }}
+          jfrog rt build-add-git my-app-build ${{ github.run_number }}
+
+      # 7. Publish build info to Artifactory
+      - name: Publish build info
+        run: |
+          jfrog rt build-publish my-app-build ${{ github.run_number }}
+
+      # Optional: Clean config
+      - name: Cleanup CLI config
+        run: jfrog config remove artifactory-server --quiet
