@@ -34,14 +34,16 @@ jobs:
           --user="${{ secrets.ARTIFACTORY_USER }}" \
           --password="${{ secrets.ARTIFACTORY_PASSWORD }}" \
           --interactive=false
-
-    # Debugging step: Check JFrog CLI configuration
+        
+    # Debugging step: Show the configuration after adding
     - name: Show JFrog CLI Configuration
-      run: jfrog config show
+      run: |
+        jfrog config show
 
     # Test JFrog CLI connection (useful for debugging)
     - name: Test JFrog CLI connection
-      run: jfrog rt ping --server-id=artifactory-server
+      run: |
+        jfrog rt ping --server-id=artifactory-server
 
     # 5. Upload Artifacts to Artifactory using --server-id
     - name: Upload to Artifactory
