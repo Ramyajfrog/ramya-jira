@@ -1,62 +1,86 @@
-name: Build and Upload to Artifactory
+name: Build, Upload to Artifactory, and Notify Jira
 
 on:
   push:
     branches: [ main ]
 
 jobs:
-  build-and-upload:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout the repo
-      - name: Checkout code
-        uses: actions/checkout@v3
+    # 1. Checkout Code
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      # 2. Run your build (example: zip files as a mock "build")
-      - name: Build - Zip Output
-        run: |
-          mkdir -p build-output
-          echo "Sample file" > build-output/output.txt
-          zip -r build-output/app.zip build-output/output.txt
+    # 2. Build - Simulate Build Output
+    - name: Build Project
+      run: |
+        mkdir -p build-output
+        echo "Sample artifact from GitHub Actions" > build-output/output.txt
+        zip -r build-output/app.zip build-output/output.txt
 
-      # 3. Install JFrog CLI
-      - name: Install JFrog CLI
-        uses: jfrog/setup-jfrog-cli@v3
-        with:
-          version: latest
+    # 3. Install JFrog CLI
+    - name: Install JFrog CLI
+      uses: jfrog/setup-jfrog-cli@v3
+      with:
+        version: latest
 
-      # 4. Configure JFrog CLI
-      - name: Configure JFrog CLI
-        run: |
-          jfrog config add artifactory-server \
-            --url="$ARTIFACTORY_URL" \
-            --user="$ARTIFACTORY_USER" \
-            --password="$ARTIFACTORY_PASSWORD" \
-            --interactive=false
-        env:
-          ARTIFACTORY_URL: ${{ secrets.ARTIFACTORY_URL }}
-          ARTIFACTORY_USER: ${{ secrets.ARTIFACTORY_USER }}
-          ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}
+    # 4. Configure JFrog CLI
+    - name: Configure JFrog CLI
+      run: |
+        jfrog config add artifactory-server \
+          --url="${{ secrets.ARTIFACTORY_URL }}" \
+          --user="${{ secrets.ARTIFACTORY_USER }}" \
+          --password="${{ secrets.ARTIFACTORY_PASSWORD }}" \
+          --interactive=false
 
-      # 5. Upload artifacts to Artifactory
-      - name: Upload artifacts
-        run: |
-          jfrog rt upload "build-output/*.zip" generic-local/my-app/${{ github.run_number }}/ \
-            --build-name=my-app-build \
-            --build-number=${{ github.run_number }}
+    # 5. Upload Artifacts to Artifactory
+    - name: Upload to Artifactory
+      run: |
+        jfrog rt upload "build-output/*.zip" generic-local/my-app/${{ github.run_number }}/ \
+          --build-name=my-app-build \
+          --build-number=${{ github.run_number }}
 
-      # 6. Collect environment and VCS info
-      - name: Collect build environment
-        run: |
-          jfrog rt build-collect-env my-app-build ${{ github.run_number }}
-          jfrog rt build-add-git my-app-build ${{ github.run_number }}
+    # 6. Add Environment and Git Metadata
+    - name: Collect Build Environment Info
+      run: |
+        jfrog rt build-collect-env my-app-build ${{ github.run_number }}
+        jfrog rt build-add-git my-app-build ${{ github.run_number }}
 
-      # 7. Publish build info to Artifactory
-      - name: Publish build info
-        run: |
-          jfrog rt build-publish my-app-build ${{ github.run_number }}
+    # 7. Publish Build Info to Artifactory
+    - name: Publish Build Info
+      run: |
+        jfrog rt build-publish my-app-build ${{ github.run_number }}
 
-      # Optional: Clean config
-      - name: Cleanup CLI config
-        run: jfrog config remove artifactory-server --quiet
+    # 8. Extract Jira Issue Key from Latest Commit
+    - name: Extract Jira Issue Key
+      id: jira
+      run: |
+        ISSUE_KEY=$(git log -1 --pretty=%B | grep -oE '[A-Z]{2,}-[0-9]+' || true)
+        echo "JIRA_KEY=$ISSUE_KEY" >> $GITHUB_OUTPUT
+
+    # 9. Add Remote Link to Jira Issue (Back to Artifactory)
+    - name: Link to Artifactory from Jira
+      if: steps.jira.outputs.JIRA_KEY != ''
+      run: |
+        ISSUE_KEY=${{ steps.jira.outputs.JIRA_KEY }}
+        ARTIFACTORY_LINK="${{ secrets.ARTIFACTORY_URL }}/ui/builds/my-app-build/${{ github.run_number }}"
+        curl -X POST \
+          -u "${{ secrets.JIRA_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" \
+          -H "Content-Type: application/json" \
+          --data '{
+            "object": {
+              "url": "'"${ARTIFACTORY_LINK}"'",
+              "title": "View Build in Artifactory",
+              "icon": {
+                "url16x16": "https://jfrog.com/favicon.ico",
+                "title": "Artifactory"
+              }
+            }
+          }' \
+          "${{ secrets.JIRA_BASE_URL }}/rest/api/2/issue/${ISSUE_KEY}/remotelink"
+
+    # 10. Cleanup JFrog CLI Config (optional)
+    - name: Cleanup
+      run: jfrog config remove artifactory-server --quiet
