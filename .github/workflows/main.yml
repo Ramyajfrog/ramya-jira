@@ -33,9 +33,10 @@ jobs:
         echo "ARTIFACTORY_USER: ${{ secrets.ARTIFACTORY_USER }}"
         echo "ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}"
 
-    # 5. Clear Previous JFrog CLI Configurations (for debugging purposes)
-    - name: Clear JFrog CLI Configurations (for debugging)
-      run: jfrog config clear
+    # 5. Remove JFrog CLI Configuration (Optional)
+    - name: Remove JFrog CLI Config (Optional)
+      run: |
+        rm -rf ~/.jfrog
 
     # 6. Configure JFrog CLI using GitHub Secrets
     - name: Configure JFrog CLI
