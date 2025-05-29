@@ -23,8 +23,7 @@ jobs:
     # 3. Install JFrog CLI
     - name: Install JFrog CLI
       uses: jfrog/setup-jfrog-cli@v3
-      with:
-        version: latest
+      # Removed version: latest to avoid issues with tool cache
 
     # 4. Configure JFrog CLI
     - name: Configure JFrog CLI
@@ -40,18 +39,19 @@ jobs:
       run: |
         jfrog rt upload "build-output/*.zip" generic-local/my-app/${{ github.run_number }}/ \
           --build-name=my-app-build \
-          --build-number=${{ github.run_number }}
+          --build-number=${{ github.run_number }} \
+          --server-id=artifactory-server
 
     # 6. Add Environment and Git Metadata
     - name: Collect Build Environment Info
       run: |
-        jfrog rt build-collect-env my-app-build ${{ github.run_number }}
-        jfrog rt build-add-git my-app-build ${{ github.run_number }}
+        jfrog rt build-collect-env my-app-build ${{ github.run_number }} --server-id=artifactory-server
+        jfrog rt build-add-git my-app-build ${{ github.run_number }} --server-id=artifactory-server
 
     # 7. Publish Build Info to Artifactory
     - name: Publish Build Info
       run: |
-        jfrog rt build-publish my-app-build ${{ github.run_number }}
+        jfrog rt build-publish my-app-build ${{ github.run_number }} --server-id=artifactory-server
 
     # 8. Extract Jira Issue Key from Latest Commit
     - name: Extract Jira Issue Key
