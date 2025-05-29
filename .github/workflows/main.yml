@@ -23,8 +23,10 @@ jobs:
     # 3. Install JFrog CLI
     - name: Install JFrog CLI
       uses: jfrog/setup-jfrog-cli@v3
+      with:
+        version: latest
 
-    # 4. Configure JFrog CLI
+    # 4. Configure JFrog CLI using GitHub Secrets
     - name: Configure JFrog CLI
       run: |
         jfrog config add artifactory-server \
@@ -33,31 +35,24 @@ jobs:
           --password="${{ secrets.ARTIFACTORY_PASSWORD }}" \
           --interactive=false
 
-    # 5. Upload Artifacts to Artifactory
+    # 5. Upload Artifacts to Artifactory using --server-id
     - name: Upload to Artifactory
       run: |
         jfrog rt upload "build-output/*.zip" generic-local/my-app/${{ github.run_number }}/ \
           --build-name=my-app-build \
           --build-number=${{ github.run_number }} \
-          --server-id=artifactory-server \
-          --url="${{ secrets.ARTIFACTORY_URL }}"
+          --server-id=artifactory-server
 
     # 6. Add Environment and Git Metadata
     - name: Collect Build Environment Info
       run: |
-        jfrog rt build-collect-env my-app-build ${{ github.run_number }} \
-          --server-id=artifactory-server \
-          --url="${{ secrets.ARTIFACTORY_URL }}"
-        jfrog rt build-add-git my-app-build ${{ github.run_number }} \
-          --server-id=artifactory-server \
-          --url="${{ secrets.ARTIFACTORY_URL }}"
+        jfrog rt build-collect-env my-app-build ${{ github.run_number }}
+        jfrog rt build-add-git my-app-build ${{ github.run_number }}
 
     # 7. Publish Build Info to Artifactory
     - name: Publish Build Info
       run: |
-        jfrog rt build-publish my-app-build ${{ github.run_number }} \
-          --server-id=artifactory-server \
-          --url="${{ secrets.ARTIFACTORY_URL }}"
+        jfrog rt build-publish my-app-build ${{ github.run_number }}
 
     # 8. Extract Jira Issue Key from Latest Commit
     - name: Extract Jira Issue Key
