@@ -26,7 +26,18 @@ jobs:
       with:
         version: latest
 
-    # 4. Configure JFrog CLI using GitHub Secrets
+    # 4. Print secrets (for debugging purposes)
+    - name: Print Secrets (for Debugging Only)
+      run: |
+        echo "ARTIFACTORY_URL: ${{ secrets.ARTIFACTORY_URL }}"
+        echo "ARTIFACTORY_USER: ${{ secrets.ARTIFACTORY_USER }}"
+        echo "ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}"
+
+    # 5. Clear Previous JFrog CLI Configurations (for debugging purposes)
+    - name: Clear JFrog CLI Configurations (for debugging)
+      run: jfrog config clear
+
+    # 6. Configure JFrog CLI using GitHub Secrets
     - name: Configure JFrog CLI
       run: |
         jfrog config add artifactory-server \
@@ -34,18 +45,16 @@ jobs:
           --user="${{ secrets.ARTIFACTORY_USER }}" \
           --password="${{ secrets.ARTIFACTORY_PASSWORD }}" \
           --interactive=false
-        
-    # Debugging step: Show the configuration after adding
-    - name: Show JFrog CLI Configuration
-      run: |
-        jfrog config show
 
-    # Test JFrog CLI connection (useful for debugging)
+    # 7. Verify JFrog CLI Configuration (for debugging)
+    - name: Verify JFrog CLI Config
+      run: jfrog config show
+
+    # 8. Test JFrog CLI connection (useful for debugging)
     - name: Test JFrog CLI connection
-      run: |
-        jfrog rt ping --server-id=artifactory-server
+      run: jfrog rt ping --server-id=artifactory-server
 
-    # 5. Upload Artifacts to Artifactory using --server-id
+    # 9. Upload Artifacts to Artifactory using --server-id
     - name: Upload to Artifactory
       run: |
         jfrog rt upload "build-output/*.zip" generic-local/my-app/${{ github.run_number }}/ \
@@ -53,25 +62,25 @@ jobs:
           --build-number=${{ github.run_number }} \
           --server-id=artifactory-server
 
-    # 6. Add Environment and Git Metadata
+    # 10. Add Environment and Git Metadata
     - name: Collect Build Environment Info
       run: |
         jfrog rt build-collect-env my-app-build ${{ github.run_number }}
         jfrog rt build-add-git my-app-build ${{ github.run_number }}
 
-    # 7. Publish Build Info to Artifactory
+    # 11. Publish Build Info to Artifactory
     - name: Publish Build Info
       run: |
         jfrog rt build-publish my-app-build ${{ github.run_number }}
 
-    # 8. Extract Jira Issue Key from Latest Commit
+    # 12. Extract Jira Issue Key from Latest Commit
     - name: Extract Jira Issue Key
       id: jira
       run: |
         ISSUE_KEY=$(git log -1 --pretty=%B | grep -oE '[A-Z]{2,}-[0-9]+' || true)
         echo "JIRA_KEY=$ISSUE_KEY" >> $GITHUB_OUTPUT
 
-    # 9. Add Remote Link to Jira Issue (Back to Artifactory)
+    # 13. Add Remote Link to Jira Issue (Back to Artifactory)
     - name: Link to Artifactory from Jira
       if: steps.jira.outputs.JIRA_KEY != ''
       run: |
@@ -92,6 +101,6 @@ jobs:
           }' \
           "${{ secrets.JIRA_BASE_URL }}/rest/api/2/issue/${ISSUE_KEY}/remotelink"
 
-    # 10. Cleanup JFrog CLI Config (optional)
+    # 14. Cleanup JFrog CLI Config (optional)
     - name: Cleanup
       run: jfrog config remove artifactory-server --quiet
