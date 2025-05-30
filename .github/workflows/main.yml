@@ -25,12 +25,20 @@ jobs:
 
       # Cache Gradle dependencies
       - name: Cache Gradle dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v3  # Use v3 for better stability
         with:
           path: ~/.gradle/caches
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
+
+      # Check Gradle cache directory for debugging
+      - name: Check Gradle cache directory
+        run: ls -la ~/.gradle/caches
+
+      # Print the Gradle cache key for debugging
+      - name: Print Gradle cache key
+        run: echo ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
 
       # Build the project with Gradle
       - name: Build project
