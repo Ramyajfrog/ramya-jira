@@ -16,7 +16,8 @@ jobs:
         run: echo "Hello, World!" > hello.txt
 
       - name: Debug ARTIFACTORY_URL
-        run: echo "Artifactory URL is ${{ secrets.ARTIFACTORY_URL }}"
+        run: |
+          echo "Artifactory URL is ${{ secrets.ARTIFACTORY_URL }}"
         
       # Step 3: Set up JFrog CLI
       - name: Set up JFrog CLI
