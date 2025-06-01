@@ -3,36 +3,39 @@ name: Create and Upload hello.txt to Artifactory
 on:
   push:
     branches:
-      - main   # You can trigger it for any branch
+      - main   # Trigger the action on the 'main' branch (adjust as necessary)
 
 jobs:
   upload_hello_file:
-    runs-on: ubuntu-latest  # You can use other OS runners as well
+    runs-on: ubuntu-latest  # Use Ubuntu as the runner environment
 
     steps:
+    
       # Step 2: Create hello.txt file with "Hello, World!" text
       - name: Create hello.txt file
         run: echo "Hello, World!" > hello.txt
 
-      # Step 3: Install JFrog CLI to interact with Artifactory
+      # Step 3: Set up JFrog CLI
       - name: Set up JFrog CLI
-        uses: jfrog/setup-jfrog-cli@v2
+        uses: jfrog/setup-jfrog-cli@v1
         with:
-          version: '2.10.1'
+          version: '2.10.1'  # Use the latest version of JFrog CLI
 
-      # Step 4: Configure JFrog CLI with Artifactory URL and API Key
+      # Step 4: Configure JFrog CLI with Artifactory credentials
       - name: Configure JFrog CLI with Artifactory credentials
         run: |
-          jfrog rt config --url ${{ secrets.ARTIFACTORY_URL }} \
-                          --apikey ${{ secrets.ARTIFACTORY_API_KEY }} \
-                          --interactive=false
+          jf config add \
+            --url ${{ secrets.ARTIFACTORY_URL }} \
+            --user ${{ secrets.ARTIFACTORY_USER }} \
+            --password ${{ secrets.ARTIFACTORY_API_KEY }} \
+            --interactive=false
 
       # Step 5: Upload hello.txt to Artifactory
       - name: Upload hello.txt to Artifactory
         run: |
-          jfrog rt u "hello.txt" "ramya-generic-local/hello-world/"
+          jf rt u "hello.txt" "ramya-generic-local/hello-world/"
 
-      # Step 6: Verify upload (Optional, this step checks if file was uploaded successfully)
+      # Step 6: Verify uploaded file in Artifactory (optional)
       - name: Verify uploaded file in Artifactory
         run: |
-          jfrog rt s "my-repo/hello-world/hello.txt"
+          jf rt s "ramya-generic-local/hello-world/hello.txt"
