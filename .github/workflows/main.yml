@@ -15,12 +15,15 @@ jobs:
       - name: Create hello.txt file
         run: echo "Hello, World!" > hello.txt
 
+      - name: Debug ARTIFACTORY_URL
+        run: echo "Artifactory URL is ${{ secrets.ARTIFACTORY_URL }}"
+        
       # Step 3: Set up JFrog CLI
       - name: Set up JFrog CLI
         uses: jfrog/setup-jfrog-cli@v2
         with:
           version: '2.10.1'  # Use the latest version of JFrog CLI
-
+      
       # Step 4: Configure JFrog CLI with Artifactory credentials
       - name: Configure JFrog CLI with Artifactory credentials
         run: |
@@ -39,3 +42,6 @@ jobs:
       - name: Verify uploaded file in Artifactory
         run: |
           jf rt s "ramya-generic-local/hello-world/hello.txt"
+
+   
+
