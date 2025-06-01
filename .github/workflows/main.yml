@@ -32,4 +32,4 @@ jobs:
       # Upload the file to Artifactory
       - name: Upload hello.txt to Artifactory
         run: |
-          jfrog rt u "hello.txt" "your-repo-name/path/in/repo/"
+          jfrog rt u "hello.txt" "ramya-generic-local/demo/hello.txt"
