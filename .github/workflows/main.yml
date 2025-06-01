@@ -17,7 +17,7 @@ jobs:
 
       # Step 3: Set up JFrog CLI
       - name: Set up JFrog CLI
-        uses: jfrog/setup-jfrog-cli@v1
+        uses: jfrog/setup-jfrog-cli@v2
         with:
           version: '2.10.1'  # Use the latest version of JFrog CLI
 
