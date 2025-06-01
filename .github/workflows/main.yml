@@ -1,17 +1,27 @@
-name: Upload Hello World to Artifactory
+name: Set up Java and Push Hello.txt to Artifactory
 
 on:
-  workflow_dispatch:  # Allows you to run it manually from the GitHub UI
+  workflow_dispatch:  # Allows manual trigger from GitHub UI
 
 jobs:
   upload:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout code (not strictly necessary here, but good practice)
+      # Checkout code
       - name: Checkout code
         uses: actions/checkout@v2
 
+      # Set up Java with the correct distribution
+      - name: Set up Java 11
+        uses: actions/setup-java@v2
+        with:
+          java-version: '11'          # Java version
+          distribution: 'adoptopenjdk'  # JDK distribution (OpenJDK)
+          java-package: 'jdk'         # Full JDK package
+          architecture: 'x64'         # Architecture (x64 is default)
+          check-latest: false         # Disable checking for the latest version
+          
       # Create hello.txt file
       - name: Create hello.txt
         run: echo "Hello, World!" > hello.txt
@@ -20,16 +30,16 @@ jobs:
       - name: Set up JFrog CLI
         uses: jfrog/setup-jfrog-cli@v1
         with:
-          version: '2.10.1'  # You can change to the latest version if needed
+          version: '2.10.1'
 
-      # Configure JFrog CLI with Artifactory API key and Artifactory URL from GitHub Secrets
+      # Configure JFrog CLI with Artifactory URL and API Key
       - name: Configure JFrog CLI
         run: |
           jfrog rt config --url ${{ secrets.ARTIFACTORY_URL }} \
                           --apikey ${{ secrets.ARTIFACTORY_API_KEY }} \
                           --interactive=false
 
-      # Upload the file to Artifactory
+      # Upload hello.txt to Artifactory
       - name: Upload hello.txt to Artifactory
         run: |
           jfrog rt u "hello.txt" "ramya-generic-local/demo/hello.txt"
