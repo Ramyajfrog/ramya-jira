@@ -1,73 +1,35 @@
-name: Build and Upload to Artifactory
+name: Upload Hello World to Artifactory
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+  workflow_dispatch:  # Allows you to run it manually from the GitHub UI
 
 jobs:
-  build:
+  upload:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout the repository
-      - name: Checkout repository
+      # Checkout code (not strictly necessary here, but good practice)
+      - name: Checkout code
         uses: actions/checkout@v2
 
-      # Set up JDK 11 (Java example)
-      - name: Set up JDK
-        uses: actions/setup-java@v2
-        with:
-          java-version: '11'
-
-      # Cache Gradle dependencies
-      - name: Cache Gradle dependencies
-        uses: actions/cache@v3  # Use v3 for better stability
-        with:
-          path: ~/.gradle/caches
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-
-      # Check Gradle cache directory for debugging
-      - name: Check Gradle cache directory
-        run: ls -la ~/.gradle/caches
-
-      # Print the Gradle cache key for debugging
-      - name: Print Gradle cache key
-        run: echo ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
-
-      # Build the project with Gradle
-      - name: Build project
-        run: ./gradlew build
+      # Create hello.txt file
+      - name: Create hello.txt
+        run: echo "Hello, World!" > hello.txt
 
       # Set up JFrog CLI
       - name: Set up JFrog CLI
         uses: jfrog/setup-jfrog-cli@v1
         with:
-          version: '2.10.1'
+          version: '2.10.1'  # You can change to the latest version if needed
 
-      # Configure JFrog CLI with Artifactory API Key
+      # Configure JFrog CLI with Artifactory API key and Artifactory URL from GitHub Secrets
       - name: Configure JFrog CLI
         run: |
-          jfrog rt config --url https://artifactory.example.com/artifactory \
+          jfrog rt config --url ${{ secrets.ARTIFACTORY_URL }} \
                           --apikey ${{ secrets.ARTIFACTORY_API_KEY }} \
                           --interactive=false
 
-      # Upload build artifacts to Artifactory
-      - name: Upload artifacts
+      # Upload the file to Artifactory
+      - name: Upload hello.txt to Artifactory
         run: |
-          jfrog rt u "build/libs/*.jar" "libs-release-local/java/com/example/" --build-name="my-build" --build-number="${{ github.run_id }}"
-
-      # Collect build info
-      - name: Collect build info
-        run: |
-          jfrog rt bce "my-build" "${{ github.run_id }}"
-
-      # Publish build info to Artifactory
-      - name: Publish build info to Artifactory
-        run: |
-          jfrog rt bp "my-build" "${{ github.run_id }}"
+          jfrog rt u "hello.txt" "your-repo-name/path/in/repo/"
