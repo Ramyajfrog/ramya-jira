@@ -1,48 +1,102 @@
-name: Create and Upload hello.txt to Artifactory
-
 on:
   push:
-    branches:
-      - main   # Trigger the action on the 'main' branch (adjust as necessary)
+    branches: [ main ]
 
 jobs:
-  upload_hello_file:
-    runs-on: ubuntu-latest  # Use Ubuntu as the runner environment
+  build:
+    runs-on: ubuntu-latest
 
     steps:
+    # 1. Checkout Code
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    # 2. Build - Simulate Build Output
+    - name: Build Project
+      run: |
+        mkdir -p build-output
+        echo "Sample artifact from GitHub Actions" > build-output/output.txt
+        zip -r build-output/app.zip build-output/output.txt
+
+    # 3. Install JFrog CLI
+    - name: Install JFrog CLI
+      uses: jfrog/setup-jfrog-cli@v3
+      with:
+        version: latest
+
+    # 4. Print Debugging Information (for secrets)
+    - name: Print Secrets for Debugging
+      run: |
+        echo "ARTIFACTORY_URL: ${{ secrets.ARTIFACTORY_URL }}"
+        echo "ARTIFACTORY_USER: ${{ secrets.ARTIFACTORY_USER }}"
+        echo "ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}"
     
-      # Step 2: Create hello.txt file with "Hello, World!" text
-      - name: Create hello.txt file
-        run: echo "Hello, World!" > hello.txt
+    # 5. Configure JFrog CLI
+    - name: Configure JFrog CLI
+      run: |
+        jfrog config add artifactory-server \
+          --url="${{ secrets.ARTIFACTORY_URL }}" \
+          --user="${{ secrets.ARTIFACTORY_USER }}" \
+          --password="${{ secrets.ARTIFACTORY_PASSWORD }}" \
+          --interactive=false
 
-      - name: Debug ARTIFACTORY_URL
-        run: |
-          echo "Artifactory URL is ${{ secrets.ARTIFACTORY_URL }}"
-        
-      # Step 3: Set up JFrog CLI
-      - name: Set up JFrog CLI
-        uses: jfrog/setup-jfrog-cli@v2
-        with:
-          version: '2.10.1'  # Use the latest version of JFrog CLI
-      
-      # Step 4: Configure JFrog CLI with Artifactory credentials
-      - name: Configure JFrog CLI with Artifactory credentials
-        run: |
-          jf config add \
-            --url ${{ secrets.ARTIFACTORY_URL }} \
-            --user ${{ secrets.ARTIFACTORY_USER }} \
-            --password ${{ secrets.ARTIFACTORY_API_KEY }} \
-            --interactive=false
+    # 6. Verify JFrog CLI Configuration (for debugging)
+    - name: Show JFrog CLI Configuration
+      run: |
+        jfrog config show
 
-      # Step 5: Upload hello.txt to Artifactory
-      - name: Upload hello.txt to Artifactory
-        run: |
-          jf rt u "hello.txt" "ramya-generic-local/hello-world/"
+    # 7. Test JFrog CLI Connection (Ping Test)
+    - name: Test JFrog CLI Connection
+      run: |
+        jfrog rt ping --server-id=artifactory-server
 
-      # Step 6: Verify uploaded file in Artifactory (optional)
-      - name: Verify uploaded file in Artifactory
-        run: |
-          jf rt s "ramya-generic-local/hello-world/hello.txt"
+    # 8. Upload Artifacts to Artifactory
+    - name: Upload to Artifactory
+      run: |
+        jfrog rt upload "build-output/*.zip" generic-local/my-app/${{ github.run_number }}/ \
+          --build-name=my-app-build \
+          --build-number=${{ github.run_number }} \
+          --server-id=artifactory-server
 
-   
+    # 9. Add Environment and Git Metadata
+    - name: Collect Build Environment Info
+      run: |
+        jfrog rt build-collect-env my-app-build ${{ github.run_number }}
+        jfrog rt build-add-git my-app-build ${{ github.run_number }}
 
+    # 10. Publish Build Info to Artifactory
+    - name: Publish Build Info
+      run: |
+        jfrog rt build-publish my-app-build ${{ github.run_number }}
+
+    # 11. Extract Jira Issue Key from Latest Commit
+    - name: Extract Jira Issue Key
+      id: jira
+      run: |
+        ISSUE_KEY=$(git log -1 --pretty=%B | grep -oE '[A-Z]{2,}-[0-9]+' || true)
+        echo "JIRA_KEY=$ISSUE_KEY" >> $GITHUB_OUTPUT
+
+    # 12. Add Remote Link to Jira Issue (Back to Artifactory)
+    - name: Link to Artifactory from Jira
+      if: steps.jira.outputs.JIRA_KEY != ''
+      run: |
+        ISSUE_KEY=${{ steps.jira.outputs.JIRA_KEY }}
+        ARTIFACTORY_LINK="${{ secrets.ARTIFACTORY_URL }}/ui/builds/my-app-build/${{ github.run_number }}"
+        curl -X POST \
+          -u "${{ secrets.JIRA_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" \
+          -H "Content-Type: application/json" \
+          --data '{
+            "object": {
+              "url": "'"${ARTIFACTORY_LINK}"'",
+              "title": "View Build in Artifactory",
+              "icon": {
+                "url16x16": "https://jfrog.com/favicon.ico",
+                "title": "Artifactory"
+              }
+            }
+          }' \
+          "${{ secrets.JIRA_BASE_URL }}/rest/api/2/issue/${ISSUE_KEY}/remotelink"
+
+    # 13. Cleanup JFrog CLI Config (optional)
+    - name: Cleanup
+      run: jfrog config remove artifactory-server --quiet
