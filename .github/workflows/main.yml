@@ -1,45 +1,38 @@
-name: Set up Java and Push Hello.txt to Artifactory
+name: Create and Upload hello.txt to Artifactory
 
 on:
-  workflow_dispatch:  # Allows manual trigger from GitHub UI
+  push:
+    branches:
+      - main   # You can trigger it for any branch
 
 jobs:
-  upload:
-    runs-on: ubuntu-latest
+  upload_hello_file:
+    runs-on: ubuntu-latest  # You can use other OS runners as well
 
     steps:
-      # Checkout code
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      # Set up Java with the correct distribution
-      - name: Set up Java 11
-        uses: actions/setup-java@v2
-        with:
-          java-version: '11'          # Java version
-          distribution: 'adoptopenjdk'  # JDK distribution (OpenJDK)
-          java-package: 'jdk'         # Full JDK package
-          architecture: 'x64'         # Architecture (x64 is default)
-          check-latest: false         # Disable checking for the latest version
-          
-      # Create hello.txt file
-      - name: Create hello.txt
+      # Step 2: Create hello.txt file with "Hello, World!" text
+      - name: Create hello.txt file
         run: echo "Hello, World!" > hello.txt
 
-      # Set up JFrog CLI
+      # Step 3: Install JFrog CLI to interact with Artifactory
       - name: Set up JFrog CLI
-        uses: jfrog/setup-jfrog-cli@v1
+        uses: jfrog/setup-jfrog-cli@v2
         with:
           version: '2.10.1'
 
-      # Configure JFrog CLI with Artifactory URL and API Key
-      - name: Configure JFrog CLI
+      # Step 4: Configure JFrog CLI with Artifactory URL and API Key
+      - name: Configure JFrog CLI with Artifactory credentials
         run: |
           jfrog rt config --url ${{ secrets.ARTIFACTORY_URL }} \
                           --apikey ${{ secrets.ARTIFACTORY_API_KEY }} \
                           --interactive=false
 
-      # Upload hello.txt to Artifactory
+      # Step 5: Upload hello.txt to Artifactory
       - name: Upload hello.txt to Artifactory
         run: |
-          jfrog rt u "hello.txt" "ramya-generic-local/demo/hello.txt"
+          jfrog rt u "hello.txt" "ramya-generic-local/hello-world/"
+
+      # Step 6: Verify upload (Optional, this step checks if file was uploaded successfully)
+      - name: Verify uploaded file in Artifactory
+        run: |
+          jfrog rt s "my-repo/hello-world/hello.txt"
