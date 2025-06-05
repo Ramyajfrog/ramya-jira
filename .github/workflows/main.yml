@@ -37,7 +37,8 @@ jobs:
       # Step 5: Upload hello.txt to Artifactory
       - name: Upload hello.txt to Artifactory
         run: |
-          jf rt u "hello.txt" "ramya-generic-local/hello-world/"
+          jf rt u "hello.txt" "ramya-generic-local/hello-world/" --build-name ramyabuild --build-numner 1
+          jf rt bp ramyabuild 1
 
       # Step 6: Verify uploaded file in Artifactory (optional)
       - name: Verify uploaded file in Artifactory
