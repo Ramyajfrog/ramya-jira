@@ -1,53 +1,45 @@
-name: JFrog Frogbot Security Scan
-
+name: Reproduce Frogbot Prefix Bug
 on:
   push:
-    branches:
-      - main  # Triggers full repo scan on direct commits or merges to main
-  pull_request:
-    types: [opened, synchronize, reopened] # Triggers incremental scan on PRs
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
-  frogbot-scan:
+  reproduce-issue:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
     steps:
-      - name: Checkout Source Code
+      - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          # If it's a PR, checkout the specific PR commit, otherwise checkout the branch head
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          node-version: '20'
 
-      - name: Download Frogbot Binary
-        run: |
-          FROGBOT_VERSION="3.2.1"
-          curl -fLgsS "https://releases.jfrog.io/artifactory/frogbot/v3/${FROGBOT_VERSION}/getFrogbot.sh" | sh
-          echo "Frogbot downloaded successfully!"
+      - name: Install Dependencies
+        run: npm install
 
-      # WORKFLOW 1: Executes ONLY on Pull Requests
-      - name: Run Incremental Pull Request Scan
-        if: github.event_name == 'pull_request'
+      - name: Print Dependency Tree
+        run: npm list
+
+      - name: Setup JFrog CLI
+        uses: jfrog/setup-jfrog-cli@v4
         env:
-          JF_URL: ${{ secrets.JFROG_URL }}
-          JF_ACCESS_TOKEN: ${{ secrets.JFROG_DEVSECOPS_TOKEN }}
-          JF_GIT_TOKEN: ${{ secrets.FROGBOT_CICD_TOKEN }}
-          JF_GIT_PROVIDER: "github"
-          JF_GIT_OWNER: ${{ github.repository_owner }}
-          JF_GIT_REPO: ${{ github.event.repository.name }}
-          JF_GIT_BASE_BRANCH: ${{ github.base_ref }}
-          JF_GIT_PULL_REQUEST_ID: ${{ github.event.number }}
-          JFROG_CLI_LOG_LEVEL: "INFO"
-        run: ./frogbot scan-pull-request
+          JF_URL: ${{ secrets.JF_URL }}
+          JF_ACCESS_TOKEN: ${{ secrets.JF_ACCESS_TOKEN }}
 
-      # WORKFLOW 2: Executes ONLY on Pushes/Merges to the Default Branch
-      - name: Run Full Repository Baseline Scan
-        if: github.event_name == 'push'
+      - name: Run JF Audit SCA Scan
+        run: jf audit
+
+      - name: Run Frogbot Scan Repository
+        uses: jfrog/frogbot@v3
         env:
-          JF_URL: ${{ secrets.JFROG_URL }}
-          JF_ACCESS_TOKEN: ${{ secrets.JFROG_DEVSECOPS_TOKEN }}
-          JF_GIT_TOKEN: ${{ secrets.FROGBOT_CICD_TOKEN }}
-          JF_GIT_PROVIDER: "github"
-          JF_GIT_OWNER: ${{ github.repository_owner }}
-          JF_GIT_REPO: ${{ github.event.repository.name }}
-          JF_GIT_BASE_BRANCH: ${{ github.ref_name }}
-          JFROG_CLI_LOG_LEVEL: "INFO"
-        run: ./frogbot scan-repository
+          JF_URL: ${{ secrets.JF_URL }}
+          JF_ACCESS_TOKEN: ${{ secrets.JF_ACCESS_TOKEN }}
+          JF_GIT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          command: scan-repository
