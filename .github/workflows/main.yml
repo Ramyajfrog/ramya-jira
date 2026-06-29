@@ -1,45 +1,39 @@
-name: Reproduce Frogbot Prefix Bug
+
+name: "Frogbot Scan Repository"
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+  schedule:
+    - cron: "0 0 * * *"
   workflow_dispatch:
-
+permissions:
+  pull-requests: write
+  contents: write
+  security-events: write
+  id-token: write
 jobs:
-  reproduce-issue:
+  frogbot-scan:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-
+    strategy:
+      matrix:
+        branch: ["main"]
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-
-      - name: Install Dependencies
+          node-version: "18"
+      - name: Install npm dependencies
         run: npm install
-
-      - name: Print Dependency Tree
-        run: npm list
-
-      - name: Setup JFrog CLI
-        uses: jfrog/setup-jfrog-cli@v4
-        env:
-          JF_URL: ${{ secrets.JF_URL }}
-          JF_ACCESS_TOKEN: ${{ secrets.JF_ACCESS_TOKEN }}
-
-      - name: Run JF Audit SCA Scan
-        run: jf audit
-
-      - name: Run Frogbot Scan Repository
-        uses: jfrog/frogbot@v3
-        env:
-          JF_URL: ${{ secrets.JF_URL }}
-          JF_ACCESS_TOKEN: ${{ secrets.JF_ACCESS_TOKEN }}
-          
+      - uses: jfrog/frogbot@v3
         with:
-          command: scan-repository
+          oidc-provider-name: ramya-frogbot
+        env:
+          JF_URL: ${{ secrets.JF_URL }}
+          JF_GIT_TOKEN: ${{ secrets.JF_GIT_TOKEN }}
+          JF_GIT_BASE_BRANCH: ${{ matrix.branch }}
+          JFROG_CLI_LOG_LEVEL: DEBUG
+          JF_FAIL: true
+          JF_FIX_AND_PULL_REQUEST: "false"
+          JF_USE_CONFIG_PROFILE: true
+          JF_INCLUDE_ALL_VULNERABILITIES: true
